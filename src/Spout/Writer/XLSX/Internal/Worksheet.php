@@ -304,6 +304,7 @@ EOD;
 			$url = $this->stringsEscaper->escape($matches[1]);
 			$text = $this->stringsEscaper->escape($matches[2]);
 			$formula = sprintf('HYPERLINK("%s","%s")', $url, $text);
+			$formula = str_replace('"','&quot;', $formula);
 			$cellXML = " t=\"str\"><f>{$formula}</f><v>{$text}</v></c>";
 			//$cellXML = sprintf(
 			//	'<c r="%s%s" t="str"><f>%s</f><v>%s</v></c>',
