@@ -57,6 +57,7 @@ EOD;
     /** @var int Index of the last written row */
     protected $lastWrittenRowIndex = 0;
 
+	protected $colWidths = [];
     /**
      * @param \Box\Spout\Writer\Common\Sheet $externalSheet The associated "external" sheet
      * @param string $worksheetFilesFolder Temporary folder where the files to create the XLSX will be stored
@@ -92,9 +93,39 @@ EOD;
         $this->throwIfSheetFilePointerIsNotAvailable();
 
         fwrite($this->sheetFilePointer, self::SHEET_XML_FILE_HEADER);
+		 
+        //fwrite($this->sheetFilePointer, $this->getColumnXML());
         fwrite($this->sheetFilePointer, '<sheetData>');
     }
+	
+	protected function getColumnXML(){
+		$elements = [];
+		foreach( $this->colWidths as $key => $colWidth ){
+			$column = $key+1;
+			$elements[] = '<col min="'.$column.'" max="'.$column.'" width="'.$colWidth.'" customWidth="1"/>';
+		}
 
+		return !empty( $elements ) ? 
+			'<cols>' . implode('', $elements). '</cols>' : '';
+	}
+
+
+	public function setColumnsWidths( $colWidths )
+	{
+		if( is_array($colWidths) ){ 
+			$this->colWidths = $colWidths;
+			$columns = $this->getColumnXML();
+			fclose($this->sheetFilePointer);
+			$content = file_get_contents( $this->worksheetFilePath );
+			$content = str_replace( '<sheetData>', $columns . '<sheetData>', $content );
+			file_put_contents( $this->worksheetFilePath, $content );
+			$this->sheetFilePointer = fopen($this->worksheetFilePath, 'a');
+			//dd( $content ); exit;
+		}
+		
+		return $this;
+	}	
+	
     /**
      * Checks if the book has been created. Throws an exception if not created yet.
      *
@@ -108,6 +139,7 @@ EOD;
         }
     }
 
+	
     /**
      * @return \Box\Spout\Writer\Common\Sheet The "external" sheet
      */
