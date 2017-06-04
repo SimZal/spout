@@ -1,3 +1,5 @@
+## This is a fork of Box/Spout that allows the use of Hyperlinks, column widths and colors.
+
 # Spout
 
 [![Latest Stable Version](https://poser.pugx.org/box/spout/v/stable)](https://packagist.org/packages/box/spout)
