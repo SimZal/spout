@@ -1,5 +1,26 @@
-## This is a fork of Box/Spout that allows the use of Hyperlinks, column widths and colors.
+## This is a fork of Box/Spout that supports the use of hyperlinks, column widths and cell colors.
 
+- for hyperlinks use the =HYPERLINK formula in your sheet
+- to set column widths for currently active sheet:
+```
+$writer->setColumnsWidths( [$colWidth1, $colWidth2, $colWidth3, $colWidth4] );
+```
+
+### Installation
+
+in your composer.json add:
+```  
+"repositories": [
+      {
+        "type": "vcs",
+        "url": "https://github.com/SimZal/spout.git"
+      }
+    ],  
+```
+and under required:
+```
+"box/spout" : "dev-improvements"
+```
 # Spout
 
 [![Latest Stable Version](https://poser.pugx.org/box/spout/v/stable)](https://packagist.org/packages/box/spout)
