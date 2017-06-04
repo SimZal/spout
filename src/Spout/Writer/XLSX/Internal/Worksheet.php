@@ -4,7 +4,6 @@ namespace Box\Spout\Writer\XLSX\Internal;
 
 use Box\Spout\Common\Exception\InvalidArgumentException;
 use Box\Spout\Common\Exception\IOException;
-use Box\Spout\Common\Helper\StringHelper;
 use Box\Spout\Writer\Common\Helper\CellHelper;
 use Box\Spout\Writer\Common\Internal\WorksheetInterface;
 
@@ -17,14 +16,6 @@ use Box\Spout\Writer\Common\Internal\WorksheetInterface;
  */
 class Worksheet implements WorksheetInterface
 {
-    /**
-     * Maximum number of characters a cell can contain
-     * @see https://support.office.com/en-us/article/Excel-specifications-and-limits-16c69c74-3d6a-4aaf-ba35-e6eb276e8eaa [Excel 2007]
-     * @see https://support.office.com/en-us/article/Excel-specifications-and-limits-1672b34d-7043-467e-8e27-269d656771c3 [Excel 2010]
-     * @see https://support.office.com/en-us/article/Excel-specifications-and-limits-ca36e2dc-1f09-4620-b726-67c00b05040f [Excel 2013/2016]
-     */
-    const MAX_CHARACTERS_PER_CELL = 32767;
-
     const SHEET_XML_FILE_HEADER = <<<EOD
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
@@ -47,9 +38,6 @@ EOD;
 
     /** @var \Box\Spout\Common\Escaper\XLSX Strings escaper */
     protected $stringsEscaper;
-
-    /** @var \Box\Spout\Common\Helper\StringHelper String helper */
-    protected $stringHelper;
 
     /** @var Resource Pointer to the sheet data file (e.g. xl/worksheets/sheet1.xml) */
     protected $sheetFilePointer;
@@ -74,7 +62,6 @@ EOD;
 
         /** @noinspection PhpUnnecessaryFullyQualifiedNameInspection */
         $this->stringsEscaper = \Box\Spout\Common\Escaper\XLSX::getInstance();
-        $this->stringHelper = new StringHelper();
 
         $this->worksheetFilePath = $worksheetFilesFolder . '/' . strtolower($this->externalSheet->getName()) . '.xml';
         $this->startSheet();
@@ -205,7 +192,7 @@ EOD;
      * @param mixed $cellValue
      * @param int $styleId
      * @return string
-     * @throws InvalidArgumentException If the given value cannot be processed
+     * @throws InvalidArgumentException
      */
     private function getCellXML($rowIndex, $cellNumber, $cellValue, $styleId)
     {
@@ -214,7 +201,23 @@ EOD;
         $cellXML .= ' s="' . $styleId . '"';
 
         if (CellHelper::isNonEmptyString($cellValue)) {
-            $cellXML .= $this->getCellXMLFragmentForNonEmptyString($cellValue);
+            $matches = array();
+            if (preg_match('/=HYPERLINK\([\'"](.*)[\'"],\s*[\'"](.*)[\'"]\)/', $cellValue, $matches)) {
+                // Special case to add HYPERLINK Formula
+                $url = $this->stringsEscaper->escape($matches[1]);
+                $text = $this->stringsEscaper->escape($matches[2]);
+                $formula = sprintf('HYPERLINK("%s","%s")', $url, $text);
+                $cellXML = sprintf(
+                    '<c r="%s%s" t="str"><f>%s</f><v>%s</v></c>',
+                    $columnIndex, $rowIndex, $formula, $text);
+            } else {
+                if ($this->shouldUseInlineStrings) {
+                    $cellXML .= ' t="inlineStr"><is><t>' . $this->stringsEscaper->escape($cellValue) . '</t></is></c>';
+                } else {
+                    $sharedStringId = $this->sharedStringsHelper->writeString($cellValue);
+                    $cellXML .= ' t="s"><v>' . $sharedStringId . '</v></c>';
+                }
+            }
         } else if (CellHelper::isBoolean($cellValue)) {
             $cellXML .= ' t="b"><v>' . intval($cellValue) . '</v></c>';
         } else if (CellHelper::isNumeric($cellValue)) {
@@ -232,29 +235,6 @@ EOD;
         }
 
         return $cellXML;
-    }
-
-    /**
-     * Returns the XML fragment for a cell containing a non empty string
-     *
-     * @param string $cellValue The cell value
-     * @return string The XML fragment representing the cell
-     * @throws InvalidArgumentException If the string exceeds the maximum number of characters allowed per cell
-     */
-    private function getCellXMLFragmentForNonEmptyString($cellValue)
-    {
-        if ($this->stringHelper->getStringLength($cellValue) > self::MAX_CHARACTERS_PER_CELL) {
-            throw new InvalidArgumentException('Trying to add a value that exceeds the maximum number of characters allowed in a cell (32,767)');
-        }
-
-        if ($this->shouldUseInlineStrings) {
-            $cellXMLFragment = ' t="inlineStr"><is><t>' . $this->stringsEscaper->escape($cellValue) . '</t></is></c>';
-        } else {
-            $sharedStringId = $this->sharedStringsHelper->writeString($cellValue);
-            $cellXMLFragment = ' t="s"><v>' . $sharedStringId . '</v></c>';
-        }
-
-        return $cellXMLFragment;
     }
 
     /**
