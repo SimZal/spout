@@ -105,6 +105,10 @@ class Writer extends AbstractMultiSheetsWriter
         $this->book->addRowToCurrentWorksheet($dataRow, $style);
     }
 
+	public function setColumnsWidths( $colWidths ){
+		$this->book->getCurrentWorksheet()->setColumnsWidths($colWidths);
+	}
+	
     /**
      * Returns the default style to be applied to rows.
      *
